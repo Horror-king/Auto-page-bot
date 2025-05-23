@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bot Setup Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to bottom right, #141e30, #243b55);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px;
+    }
+    h1 {
+      animation: fadeIn 1.5s ease;
+    }
+    form {
+      background: #1e2a38;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.6);
+      max-width: 400px;
+      width: 100%;
+    }
+    label, input {
+      display: block;
+      margin-bottom: 10px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+    }
+    button {
+      background: #00bfff;
+      color: white;
+      border: none;
+      padding: 10px;
+      width: 100%;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    p#status {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+    .footer {
+      margin-top: 40px;
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <h1>Facebook Bot Setup</h1>
+  <form id="tokenForm">
+    <label for="pageId">Page ID:</label>
+    <input type="text" id="pageId" required>
+
+    <label for="verify">Verify Token:</label>
+    <input type="text" id="verify" required>
+
+    <label for="access">Page Access Token:</label>
+    <input type="text" id="access" required>
+
+    <label for="gemini">Gemini API Key:</label>
+    <input type="text" id="gemini" required>
+
+    <button type="submit">Save Bot</button>
+  </form>
+
+  <p id="status"></p>
+  <div class="footer">Made with love by Hassan</div>
+
+  <script>
+    document.getElementById('tokenForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const pageId = document.getElementById('pageId').value;
+      const verify = document.getElementById('verify').value;
+      const access = document.getElementById('access').value;
+      const gemini = document.getElementById('gemini').value;
+
+      const res = await fetch('/set-tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageId, verifyToken: verify, pageAccessToken: access, geminiKey: gemini })
+      });
+
+      const text = await res.text();
+      document.getElementById('status').textContent = text;
+    });
+  </script>
+</body>
+</html>
