@@ -1,46 +1,93 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Admin Login</title>
+  <meta charset="UTF-8" />
+  <title>Facebook Bot Setup</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #1f4037, #99f2c8);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px;
+    }
+    form {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 20px;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 400px;
+    }
+    label, input {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    input {
+      padding: 8px;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      background: #00b894;
+      color: white;
+      padding: 10px;
+      width: 100%;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    p {
+      margin-top: 20px;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
-  <h2>Login</h2>
-  <input type="text" id="username" placeholder="admin" />
-  <input type="password" id="password" placeholder="admin123" />
-  <button onclick="login()">Login</button>
-  <div id="form" style="display:none;">
-    <h3>Register Bot</h3>
-    <input id="vtoken" placeholder="Verify Token"><br>
-    <input id="ptoken" placeholder="Page Access Token"><br>
-    <input id="gkey" placeholder="Gemini API Key"><br>
-    <button onclick="setTokens()">Register</button>
-  </div>
-  <script>
-    function login() {
-      fetch('/admin-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: document.getElementById('username').value,
-          password: document.getElementById('password').value
-        })
-      }).then(res => {
-        if (res.ok) document.getElementById('form').style.display = 'block';
-        else alert("Login failed");
-      });
-    }
+  <h1>Bot Setup</h1>
+  <form id="tokenForm">
+    <label for="pageId">Page ID</label>
+    <input type="text" id="pageId" required>
 
-    function setTokens() {
-      fetch('/set-tokens', {
+    <label for="verify">Verify Token</label>
+    <input type="text" id="verify" required>
+
+    <label for="access">Page Access Token</label>
+    <input type="text" id="access" required>
+
+    <label for="gemini">Gemini API Key</label>
+    <input type="text" id="gemini" required>
+
+    <button type="submit">Save Bot</button>
+  </form>
+
+  <p id="status"></p>
+
+  <script>
+    document.getElementById('tokenForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const pageId = document.getElementById('pageId').value;
+      const verify = document.getElementById('verify').value;
+      const access = document.getElementById('access').value;
+      const gemini = document.getElementById('gemini').value;
+
+      const res = await fetch('/set-tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          verifyToken: document.getElementById('vtoken').value,
-          pageAccessToken: document.getElementById('ptoken').value,
-          geminiKey: document.getElementById('gkey').value
+          pageId,
+          verifyToken: verify,
+          pageAccessToken: access,
+          geminiKey: gemini
         })
-      }).then(res => res.text()).then(alert);
-    }
+      });
+
+      const text = await res.text();
+      document.getElementById('status').textContent = text;
+    });
   </script>
 </body>
 </html>
