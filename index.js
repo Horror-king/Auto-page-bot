@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const https = require('https');
+const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
@@ -11,7 +12,7 @@ app.use(bodyParser.json());
 
 let bots = [];
 
-// TEMP: Hardcoded bot so Facebook can verify the webhook
+// Default fallback bot for Facebook webhook verification
 const DEFAULT_VERIFY_TOKEN = "Hassan";
 bots.push({
   id: "default-bot",
@@ -20,7 +21,23 @@ bots.push({
   geminiKey: "DUMMY_KEY"
 });
 
-// Endpoint to set up new bots
+// ======================= ADMIN LOGIN =========================
+app.post('/admin-login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (username === 'admin' && password === 'admin123') {
+    res.json({ success: true });
+  } else {
+    res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+});
+
+// Serve admin page
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// ======================= REGISTER NEW BOT =========================
 app.post('/set-tokens', (req, res) => {
   const { verifyToken, pageAccessToken, geminiKey } = req.body;
   const bot = {
@@ -34,7 +51,7 @@ app.post('/set-tokens', (req, res) => {
   res.send("✅ Bot added. Webhook ready!");
 });
 
-// Webhook verification endpoint
+// ======================= WEBHOOK VERIFY =========================
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -50,7 +67,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Handle messages
+// ======================= WEBHOOK EVENTS =========================
 app.post('/webhook', async (req, res) => {
   const body = req.body;
 
@@ -58,13 +75,12 @@ app.post('/webhook', async (req, res) => {
     for (const entry of body.entry) {
       const webhookEvent = entry.messaging[0];
       const senderId = webhookEvent.sender.id;
-
       const pageId = entry.id;
-      const bot = bots.find(b => b.pageAccessToken !== "DUMMY_TOKEN" && entry.id === pageId);
 
+      const bot = bots.find(b => b.pageAccessToken !== "DUMMY_TOKEN" && pageId === pageId);
       if (!bot) {
         console.warn("❌ No bot found for page ID:", pageId);
-        return res.sendStatus(404);
+        continue;
       }
 
       if (webhookEvent.message?.text) {
@@ -78,7 +94,7 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// Generate Gemini AI reply
+// ======================= GEMINI AI =========================
 async function generateGeminiReply(userText, geminiKey) {
   try {
     const genAI = new GoogleGenerativeAI(geminiKey);
@@ -91,7 +107,7 @@ async function generateGeminiReply(userText, geminiKey) {
   }
 }
 
-// Send reply to Messenger
+// ======================= SEND MESSAGE TO MESSENGER =========================
 function sendMessage(recipientId, text, accessToken) {
   const body = {
     recipient: { id: recipientId },
@@ -110,6 +126,7 @@ function sendMessage(recipientId, text, accessToken) {
   request.end();
 }
 
+// ======================= START SERVER =========================
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });
