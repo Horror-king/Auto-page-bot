@@ -1,102 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Bot Setup Panel</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Login - Messenger Bot</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(to bottom right, #141e30, #243b55);
-      color: white;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 40px;
-    }
-    h1 {
-      animation: fadeIn 1.5s ease;
-    }
-    form {
-      background: #1e2a38;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.6);
-      max-width: 400px;
-      width: 100%;
-    }
-    label, input {
-      display: block;
-      margin-bottom: 10px;
-    }
-    input {
-      width: 100%;
-      padding: 8px;
-      border-radius: 6px;
-      border: none;
-    }
-    button {
-      background: #00bfff;
-      color: white;
-      border: none;
-      padding: 10px;
-      width: 100%;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    p#status {
-      margin-top: 20px;
-      font-weight: bold;
-    }
-    .footer {
-      margin-top: 40px;
-      font-size: 14px;
-      color: #ccc;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    body { font-family: sans-serif; padding: 2rem; background: #f4f4f4; max-width: 500px; margin: auto; }
+    input, button { width: 100%; padding: 10px; margin: 10px 0; }
+    button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #0056b3; }
+    #tokenForm, #response { display: none; }
   </style>
 </head>
 <body>
-  <h1>Facebook Bot Setup</h1>
-  <form id="tokenForm">
-    <label for="pageId">Page ID:</label>
-    <input type="text" id="pageId" required>
-
-    <label for="verify">Verify Token:</label>
-    <input type="text" id="verify" required>
-
-    <label for="access">Page Access Token:</label>
-    <input type="text" id="access" required>
-
-    <label for="gemini">Gemini API Key:</label>
-    <input type="text" id="gemini" required>
-
-    <button type="submit">Save Bot</button>
+  <h2>Admin Login</h2>
+  <form id="loginForm">
+    <input type="text" id="username" placeholder="Username" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <button type="submit">Login</button>
   </form>
 
-  <p id="status"></p>
-  <div class="footer">Made with love by Hassan</div>
+  <form id="tokenForm">
+    <h3>Set Messenger Bot Tokens</h3>
+    <input type="text" id="pageToken" placeholder="Page Access Token" required />
+    <input type="text" id="appId" placeholder="App ID" required />
+    <input type="text" id="appSecret" placeholder="App Secret" required />
+    <input type="text" id="verifyToken" placeholder="Verify Token (e.g. Hassan)" required />
+    <button type="submit">Set Tokens</button>
+  </form>
+
+  <div id="response" style="margin-top: 10px;"></div>
 
   <script>
-    document.getElementById('tokenForm').addEventListener('submit', async (e) => {
+    const loginForm = document.getElementById('loginForm');
+    const tokenForm = document.getElementById('tokenForm');
+    const responseDiv = document.getElementById('response');
+
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const res = await fetch('/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('username').value,
+          password: document.getElementById('password').value
+        })
+      });
+      const result = await res.json();
+      if (result.success) {
+        loginForm.style.display = 'none';
+        tokenForm.style.display = 'block';
+        responseDiv.style.display = 'block';
+      } else {
+        alert('Invalid credentials');
+      }
+    });
 
-      const pageId = document.getElementById('pageId').value;
-      const verify = document.getElementById('verify').value;
-      const access = document.getElementById('access').value;
-      const gemini = document.getElementById('gemini').value;
-
+    tokenForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        pageToken: document.getElementById('pageToken').value,
+        appId: document.getElementById('appId').value,
+        appSecret: document.getElementById('appSecret').value,
+        verifyToken: document.getElementById('verifyToken').value
+      };
       const res = await fetch('/set-tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pageId, verifyToken: verify, pageAccessToken: access, geminiKey: gemini })
+        body: JSON.stringify(data)
       });
-
       const text = await res.text();
-      document.getElementById('status').textContent = text;
+      responseDiv.innerText = `Server Response: ${text}`;
     });
   </script>
 </body>
