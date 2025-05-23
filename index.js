@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const https = require('https');
+const fs = require('fs');
 const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
@@ -11,24 +12,24 @@ app.use(express.static('public'));
 app.use(bodyParser.json());
 
 let bots = [];
+const TOKENS_FILE = path.join(__dirname, 'tokens.json');
 
-// Default fallback bot for Facebook webhook verification
-const DEFAULT_VERIFY_TOKEN = "Hassan";
-bots.push({
-  id: "default-bot",
-  verifyToken: DEFAULT_VERIFY_TOKEN,
-  pageAccessToken: "DUMMY_TOKEN",
-  geminiKey: "DUMMY_KEY"
-});
+// Load existing tokens
+if (fs.existsSync(TOKENS_FILE)) {
+  try {
+    bots = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf-8'));
+  } catch (err) {
+    console.error("Failed to parse tokens.json", err);
+  }
+}
 
 // ======================= ADMIN LOGIN =========================
 app.post('/admin-login', (req, res) => {
   const { username, password } = req.body;
-
   if (username === 'admin' && password === 'admin123') {
     res.json({ success: true });
   } else {
-    res.status(401).json({ success: false, message: 'Invalid credentials' });
+    res.status(401).json({ success: false });
   }
 });
 
@@ -37,7 +38,7 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// ======================= REGISTER NEW BOT =========================
+// ======================= SET TOKENS =========================
 app.post('/set-tokens', (req, res) => {
   const { verifyToken, pageAccessToken, geminiKey } = req.body;
   const bot = {
@@ -47,11 +48,11 @@ app.post('/set-tokens', (req, res) => {
     geminiKey
   };
   bots.push(bot);
-  console.log(`✅ Bot ${bot.id} registered`);
-  res.send("✅ Bot added. Webhook ready!");
+  fs.writeFileSync(TOKENS_FILE, JSON.stringify(bots, null, 2));
+  res.send("✅ Bot registered");
 });
 
-// ======================= WEBHOOK VERIFY =========================
+// ======================= VERIFY WEBHOOK =========================
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
@@ -59,32 +60,27 @@ app.get('/webhook', (req, res) => {
 
   const bot = bots.find(b => b.verifyToken === token);
   if (mode === 'subscribe' && bot) {
-    console.log("✅ Webhook verified");
-    res.status(200).send(challenge);
+    return res.status(200).send(challenge);
   } else {
-    console.warn("❌ Webhook verification failed");
-    res.sendStatus(403);
+    return res.sendStatus(403);
   }
 });
 
-// ======================= WEBHOOK EVENTS =========================
+// ======================= HANDLE MESSAGES =========================
 app.post('/webhook', async (req, res) => {
   const body = req.body;
 
   if (body.object === 'page') {
     for (const entry of body.entry) {
-      const webhookEvent = entry.messaging[0];
-      const senderId = webhookEvent.sender.id;
+      const event = entry.messaging[0];
+      const senderId = event.sender.id;
       const pageId = entry.id;
 
-      const bot = bots.find(b => b.pageAccessToken !== "DUMMY_TOKEN" && pageId === pageId);
-      if (!bot) {
-        console.warn("❌ No bot found for page ID:", pageId);
-        continue;
-      }
+      const bot = bots.find(b => b.pageAccessToken && pageId);
+      if (!bot) continue;
 
-      if (webhookEvent.message?.text) {
-        const reply = await generateGeminiReply(webhookEvent.message.text, bot.geminiKey);
+      if (event.message?.text) {
+        const reply = await generateGeminiReply(event.message.text, bot.geminiKey);
         sendMessage(senderId, reply, bot.pageAccessToken);
       }
     }
@@ -94,39 +90,35 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// ======================= GEMINI AI =========================
-async function generateGeminiReply(userText, geminiKey) {
+async function generateGeminiReply(text, key) {
   try {
-    const genAI = new GoogleGenerativeAI(geminiKey);
+    const genAI = new GoogleGenerativeAI(key);
     const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-    const result = await model.generateContent(`Your name is KORA AI. Reply with soft vibes:\n\nUser: ${userText}`);
+    const result = await model.generateContent(`You are KORA AI. Reply gently:\n\nUser: ${text}`);
     return result.response.text();
   } catch (e) {
-    console.error("Gemini error:", e);
-    return "KORA AI is taking a break. Please try again later.";
+    return "KORA AI is resting. Please try again later.";
   }
 }
 
-// ======================= SEND MESSAGE TO MESSENGER =========================
 function sendMessage(recipientId, text, accessToken) {
   const body = {
     recipient: { id: recipientId },
     message: { text }
   };
 
-  const request = https.request({
+  const req = https.request({
     hostname: 'graph.facebook.com',
     path: `/v12.0/me/messages?access_token=${accessToken}`,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' }
   });
 
-  request.on('error', err => console.error("Send error:", err));
-  request.write(JSON.stringify(body));
-  request.end();
+  req.on('error', e => console.error("Send error:", e));
+  req.write(JSON.stringify(body));
+  req.end();
 }
 
-// ======================= START SERVER =========================
 app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
+  console.log(`Server is running on http://localhost:${port}`);
 });
